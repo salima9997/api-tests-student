@@ -26,7 +26,10 @@
 ```
 TEST_LOGIN=your_login
 TEST_PASSWORD=your_password
+TEST_LOGIN_2=second_user_login
+TEST_PASSWORD_2=second_user_password
 ```
+Для тестирования избранного необходимы два разных пользователя.
 
 8. Для запуска всех тестов достаточно выполнить команду в корне проекта:
 
@@ -52,4 +55,26 @@ TEST_PASSWORD=your_password
 
 ```bash
   golangci-lint run
+```
+
+### Тестирование создания объявлений и избранного
+
+Реализованы позитивные и негативные API-тесты создания объявлений и работы с избранным, включая проверки статусов 400, 401, 403, 404 и 409.
+
+Запуск тестов создания объявлений:
+
+```bash
+go test -v ./tests/scenarios/advertisementCreation/
+```
+
+Запуск тестов избранного:
+
+```bash
+go test -v ./tests/scenarios/favorites/
+```
+
+Проверка стабильности тестов (три последовательных запуска):
+
+```bash
+go test -p 1 -count=3 -v ./tests/scenarios/advertisementCreation/ ./tests/scenarios/favorites/
 ```

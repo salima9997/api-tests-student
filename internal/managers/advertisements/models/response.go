@@ -12,7 +12,7 @@ type Advertisement struct {
 	Description string  `json:"description"`
 	ID          string  `json:"id"`
 	Photos      []Photo `json:"photos"`
-	Price       int     `json:"price"`
+	Price       float64 `json:"price"`
 	Quantity    int     `json:"quantity"`
 	Title       string  `json:"title"`
 	UpdatedAt   string  `json:"updated_at"`
@@ -36,4 +36,10 @@ type User struct {
 	ID        string `json:"id"`
 	LastName  string `json:"last_name"`
 	UpdatedAt string `json:"updated_at"`
+}
+
+type ErrorResponse struct {
+	Details string `json:"details"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
 }
