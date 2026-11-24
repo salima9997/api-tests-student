@@ -83,3 +83,25 @@ func CreateAdvertisementExpectError(t *testing.T, token, title, description stri
 
 	return resp
 }
+
+func CreateAdvertisementRawExpectError(
+	t *testing.T,
+	token, title, description, price, quantity string,
+	photoPaths []string,
+	expectedStatus int,
+) models.ErrorResponse {
+	raw := advertisements.HttpPostAdvertisementRawWithStatus(
+		t, token, title, description,
+		price, quantity, photoPaths, expectedStatus,
+	)
+	defer raw.Body.Close()
+
+	body, err := io.ReadAll(raw.Body)
+	require.NoError(t, err, "Не удалось прочитать ответ API")
+
+	resp := models.ErrorResponse{}
+	require.NoError(t, json.Unmarshal(body, &resp),
+		"Не удалось разобрать ответ API: %s", string(body))
+
+	return resp
+}

@@ -1,9 +1,14 @@
 package myAdvertisement
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	advList "api-tests-template/internal/managers/advertisements"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -36,30 +41,61 @@ func (s *TestSuite) TearDownSuite() {
 	base.TearDownSuite()
 }
 
-// Positive: Проверяем получение собственных объявлений в профиле
 func (s *TestSuite) TestGetMyAdvertisementsPositive() {
+	title := fmt.Sprintf("QA My Ads %d", time.Now().UnixNano())
+	photoPath := filepath.Join("..", "advertisementCreation", "testdata", "photo.png")
+
+	created := advList.CreateAdvertisement(
+		s.T(),
+		s.loginData.Token,
+		title,
+		"Тестовое объявление",
+		100,
+		1,
+		photoPath,
+	)
+
+	require.NotEmpty(s.T(), created.ID, "Не получен ID созданного объявления")
+
+	s.T().Cleanup(func() {
+		advList.DeleteAdvertisement(s.T(), s.loginData.Token, created.ID)
+	})
+
 	var advertisementsBody string
 	s.Run("Получаем список собственных объявлений", func() {
-		advertisementsBody = myAdvertisements.GetMyAdvertisements(s.T(), s.loginData.Token, http.StatusOK, 50)
+		advertisementsBody = myAdvertisements.GetMyAdvertisements(
+			s.T(), s.loginData.Token, http.StatusOK, 50,
+		)
 	})
 
 	var items gjson.Result
-	s.Run("Проверяем, что у нас есть несколько добавленных ранее объявлений", func() {
+	s.Run("Проверяем наличие объявлений", func() {
 		items = gjson.Get(advertisementsBody, "items")
 		require.NotEmpty(s.T(), items.Array())
 	})
 
-	s.Run("Проверяем, что наши объявления имеют принадлежность к нашему пользователю и объявления имеют НЕ пустые параметры", func() {
-		for _, item := range items.Array() {
-			require.Equal(s.T(), s.loginData.User.Id, gjson.Get(item.String(), "user_id").String(), "user_id не совпадает")
+	s.Run("Проверяем объявления и наличие созданного", func() {
+		found := false
 
-			require.NotEmpty(s.T(), gjson.Get(item.String(), "id").String(), "id пустое")
-			require.NotEmpty(s.T(), gjson.Get(item.String(), "created_at").String(), "created_at пустое")
-			require.NotEmpty(s.T(), gjson.Get(item.String(), "updated_at").String(), "updated_at пустое")
-			require.NotEmpty(s.T(), gjson.Get(item.String(), "title").String(), "Название пустое")
-			require.NotEmpty(s.T(), gjson.Get(item.String(), "description").String(), "Описание пустое")
-			require.True(s.T(), len(gjson.Get(item.String(), "photos").Array()) > 0, "Присутствуют пустые фотографии")
+		for _, item := range items.Array() {
+			require.Equal(s.T(), s.loginData.User.Id,
+				gjson.Get(item.Raw, "user_id").String(), "user_id не совпадает")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "id").String(), "id пустое")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "created_at").String(), "created_at пустое")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "updated_at").String(), "updated_at пустое")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "title").String(), "Название пустое")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "description").String(), "Описание пустое")
+			require.NotEmpty(s.T(), gjson.Get(item.Raw, "photos").Array(), "Фотографии отсутствуют")
+
+			if gjson.Get(item.Raw, "id").String() == created.ID {
+				found = true
+				require.Equal(s.T(), title,
+					gjson.Get(item.Raw, "title").String(), "Название не совпадает")
+			}
 		}
+
+		require.True(s.T(), found,
+			"Созданное объявление с ID %s не найдено в списке", created.ID)
 	})
 }
 

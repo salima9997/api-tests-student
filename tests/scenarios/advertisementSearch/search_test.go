@@ -1,9 +1,12 @@
 package advertisementSearch
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -17,7 +20,6 @@ import (
 )
 
 const (
-	existingAdTitle = "Начало середина конец"
 	searchBeginning = "Начало"
 	searchMiddle    = "середина"
 	searchEnd       = "конец"
@@ -26,7 +28,9 @@ const (
 
 type TestSuite struct {
 	suite.Suite
-	loginData models.LoginOkResponse
+	loginData      models.LoginOkResponse
+	createdAdID    string
+	createdAdTitle string
 }
 
 func TestSuiteRun(t *testing.T) {
@@ -36,17 +40,48 @@ func TestSuiteRun(t *testing.T) {
 func (s *TestSuite) SetupSuite() {
 	base.SetupSuite()
 
-	base.Precondition("Проверяем, что константы заданы")
-	require.NotEmpty(s.T(), existingAdTitle, "задайте existingAdTitle")
-	require.NotEmpty(s.T(), searchBeginning, "задайте searchBeginning")
-	require.NotEmpty(s.T(), searchMiddle, "задайте searchMiddle")
-	require.NotEmpty(s.T(), searchEnd, "задайте searchEnd")
-	require.NotEmpty(s.T(), searchMixed, "задайте searchMixed")
+	base.Precondition("Авторизация пользователя")
+	s.loginData = auth.Login(
+		s.T(),
+		os.Getenv("TEST_LOGIN"),
+		os.Getenv("TEST_PASSWORD"),
+	)
 
-	s.loginData = auth.Login(s.T(), os.Getenv("TEST_LOGIN"), os.Getenv("TEST_PASSWORD"))
+	s.createdAdTitle = fmt.Sprintf(
+		"Начало середина конец %d",
+		time.Now().UnixNano(),
+	)
+
+	photoPath := filepath.Join(
+		"..",
+		"advertisementCreation",
+		"testdata",
+		"photo.png",
+	)
+
+	created := advList.CreateAdvertisement(
+		s.T(),
+		s.loginData.Token,
+		s.createdAdTitle,
+		"Объявление для тестирования поиска",
+		100,
+		1,
+		photoPath,
+	)
+
+	require.NotEmpty(s.T(), created.ID, "Не получен ID созданного объявления")
+	s.createdAdID = created.ID
 }
 
 func (s *TestSuite) TearDownSuite() {
+	if s.createdAdID != "" {
+		advList.DeleteAdvertisement(
+			s.T(),
+			s.loginData.Token,
+			s.createdAdID,
+		)
+	}
+
 	base.TearDownSuite()
 }
 
@@ -58,7 +93,7 @@ func (s *TestSuite) TestSearchByTitle() {
 	})
 
 	s.Run("Среди найденных есть наше объявление", func() {
-		assertions.ContainsAdvertisementByTitle(s.T(), list.Items, existingAdTitle)
+		assertions.ContainsAdvertisementByTitle(s.T(), list.Items, s.createdAdTitle)
 	})
 }
 
@@ -78,7 +113,7 @@ func (s *TestSuite) TestSearchByTitle_Substring() {
 	for _, tc := range cases {
 		s.Run(tc.name, func() {
 			list := advList.GetAdvertisementsList(s.T(), s.loginData.Token, tc.search)
-			assertions.ContainsAdvertisementByTitle(s.T(), list.Items, existingAdTitle)
+			assertions.ContainsAdvertisementByTitle(s.T(), list.Items, s.createdAdTitle)
 		})
 	}
 }

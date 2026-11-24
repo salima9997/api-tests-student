@@ -100,3 +100,81 @@ func TestCreateAdvertisementNegative(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateAdvertisementAdditionalNegative(t *testing.T) {
+	base.SetupSuite()
+	t.Cleanup(base.TearDownSuite)
+
+	base.Precondition("Авторизация пользователя")
+	loginData := auth.Login(
+		t,
+		os.Getenv("TEST_LOGIN"),
+		os.Getenv("TEST_PASSWORD"),
+	)
+
+	photoPath := filepath.Join("testdata", "photo.png")
+	badPhotoPath := filepath.Join("testdata", "bad-photo.txt")
+
+	cases := []struct {
+		name            string
+		quantity        string
+		photos          []string
+		expectedStatus  int
+		expectedMessage string
+	}{
+		{
+			name:            "Отрицательное количество",
+			quantity:        "-1",
+			photos:          []string{photoPath},
+			expectedStatus:  http.StatusBadRequest,
+			expectedMessage: "quantity must be between 1 and 100 inclusive",
+		},
+		{
+			name:            "Строковое количество",
+			quantity:        "abc",
+			photos:          []string{photoPath},
+			expectedStatus:  http.StatusBadRequest,
+			expectedMessage: "cannot convert string value to int",
+		},
+		{
+			name:            "Неподдерживаемый формат фотографии",
+			quantity:        "1",
+			photos:          []string{badPhotoPath},
+			expectedStatus:  http.StatusBadRequest,
+			expectedMessage: "photo 1: file type not allowed: extension \".txt\"",
+		},
+		{
+			name:     "Более трех фотографий",
+			quantity: "1",
+			photos: []string{
+				photoPath,
+				photoPath,
+				photoPath,
+				photoPath,
+			},
+			expectedStatus:  http.StatusBadRequest,
+			expectedMessage: "maximum 3 photos allowed",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Log("Отправляем запрос на создание объявления")
+
+			resp := advertisements.CreateAdvertisementRawExpectError(
+				t,
+				loginData.Token,
+				"QA Negative Test",
+				"Описание тестового объявления",
+				"100",
+				tc.quantity,
+				tc.photos,
+				tc.expectedStatus,
+			)
+
+			require.Equal(t, tc.expectedMessage, resp.Message, "Некорректное сообщение об ошибке")
+			t.Logf("Ожидаемый статус: %d", tc.expectedStatus)
+			t.Logf("Сообщение об ошибке: %s", resp.Message)
+		})
+	}
+}

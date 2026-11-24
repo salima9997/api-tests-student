@@ -63,3 +63,21 @@ func HttpGetAdvertisementPhotos(t *testing.T, token, id string) *http.Response {
 		Status(http.StatusOK).
 		End().Response
 }
+
+func HttpPostAdvertisementRawWithStatus(
+	t *testing.T,
+	token, title, description, price, quantity string,
+	photoPaths []string,
+	expectedStatus int,
+) *http.Response {
+	return apiRunner.GetRunner().Auth(token).Create().
+		Post(path.AdvertisementPath).
+		MultipartFormData("title", title).
+		MultipartFormData("description", description).
+		MultipartFormData("price", price).
+		MultipartFormData("quantity", quantity).
+		MultipartFile("photos", photoPaths...).
+		Expect(t).
+		Status(expectedStatus).
+		End().Response
+}
